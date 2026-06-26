@@ -14,6 +14,17 @@ single Docker container.
   pbkdf2-hashed passwords, cookie sessions
 - **Checks:** `tcp` (port open) or `http` (any response = up), on a background loop
 
+![dash — rows view](docs/screenshots/dashboard-rows-dark.png)
+
+## Documentation
+
+Full docs live in [`docs/`](docs/README.md):
+
+- [Getting started](docs/getting-started.md) · [User guide](docs/user-guide.md) ·
+  [Administration](docs/administration.md)
+- [Deployment](docs/deployment.md) · [Configuration](docs/configuration.md) ·
+  [Updates](docs/updates.md) · [Architecture & API](docs/architecture.md)
+
 ## Quick start
 
 ```bash

@@ -33,6 +33,8 @@ BUILD=false
 TLS_HOSTS=""
 UPDATE_REPO="$REPO"
 ASSUME_YES=false
+# Track which values came from flags so we don't re-prompt for them.
+DIR_SET=false; PORT_SET=false; TLS_HOSTS_SET=false
 
 show_help() {
     cat <<'EOF'
@@ -54,11 +56,11 @@ EOF
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --dir)         DIR="$2"; shift 2 ;;
-        --port)        PORT="$2"; shift 2 ;;
+        --dir)         DIR="$2"; DIR_SET=true; shift 2 ;;
+        --port)        PORT="$2"; PORT_SET=true; shift 2 ;;
         --image)       IMAGE="$2"; shift 2 ;;
         --build)       BUILD=true; shift ;;
-        --tls-hosts)   TLS_HOSTS="$2"; shift 2 ;;
+        --tls-hosts)   TLS_HOSTS="$2"; TLS_HOSTS_SET=true; shift 2 ;;
         --update-repo) UPDATE_REPO="$2"; shift 2 ;;
         -y|--yes)      ASSUME_YES=true; shift ;;
         -h|--help)     show_help; exit 0 ;;
@@ -168,10 +170,12 @@ log_ok "Ready"
 # [4/6] Configuration
 # ---------------------------------------------------------------------------
 log_step "4/6" "Configuration..."
-ask_default "Install directory" "$DIR" DIR; DIR="$(abspath "$DIR")"
-ask_default "Host HTTPS port" "$PORT" PORT
-ask_default "Hostname(s)/IP for the TLS cert (comma-separated, blank to skip)" "$TLS_HOSTS" TLS_HOSTS
-ask_default "GitHub repo for update checks (owner/repo, blank to disable)" "$UPDATE_REPO" UPDATE_REPO
+[ "$DIR_SET" = true ]  || ask_default "Install directory" "$DIR" DIR
+DIR="$(abspath "$DIR")"
+[ "$PORT_SET" = true ] || ask_default "Web UI port (https)" "$PORT" PORT
+[ "$TLS_HOSTS_SET" = true ] || ask_default "This server's hostname/IP for the HTTPS cert (Enter to skip)" "$TLS_HOSTS" TLS_HOSTS
+# Update notifications always point at the upstream repo (override with --update-repo on a fork).
+[ -n "$UPDATE_REPO" ] && log_info "Update notifications check: $UPDATE_REPO"
 
 # ---------------------------------------------------------------------------
 # [5/6] Write compose + data dir

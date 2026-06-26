@@ -71,3 +71,14 @@ docker compose pull && docker compose up -d
 
 If the package is private, run `docker login ghcr.io` on the server once (with a
 token that has `read:packages`). See [Updates](./updates.md) for the release flow.
+
+## Uninstall
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/preston-peterson/dash/main/uninstall.sh)
+```
+
+Stops and removes the container (it auto-detects the install directory from the running
+container) and **keeps your data** by default. Flags: `--purge` also deletes `./data`
+and the install directory, `--rmi` removes the image, `--dir <path>` if auto-detect
+fails, `-y` for non-interactive. From a clone, `docker compose down` also works.

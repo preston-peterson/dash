@@ -175,6 +175,17 @@ The cert lives alongside it (`./data/cert.pem` / `key.pem`).
 bind-mount keeps your links, users, and cert across rebuilds. `restart: unless-stopped`
 brings it back after a reboot.
 
+## Uninstall
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/preston-peterson/dash/main/uninstall.sh)
+```
+
+Stops and removes the container (auto-detecting the install directory) and **keeps
+your data** by default. Add `--purge` to also delete `./data` + the install directory,
+`--rmi` to remove the image, or `--dir <path>` if it can't auto-detect. From a clone
+you can also just `docker compose down`.
+
 ## Local development
 
 ```bash

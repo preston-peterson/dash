@@ -88,7 +88,8 @@ ask_default() {
 # Yes/No confirm. Non-interactive returns the default.
 confirm() {
     local prompt="$1" def="${2:-Y}" reply=""
-    if [ "$ASSUME_YES" = true ] || [ ! -t 0 ]; then [ "$def" = "Y" ]; return; fi
+    if [ "$ASSUME_YES" = true ]; then return 0; fi   # -y / --yes => yes to all
+    if [ ! -t 0 ]; then [ "$def" = "Y" ]; return; fi # piped, no -y => take the default
     read -r -p "  $prompt " reply
     reply="${reply:-$def}"
     [[ "$reply" =~ ^[Yy]$ ]]
@@ -134,11 +135,11 @@ if ! command -v docker >/dev/null 2>&1; then
     fi
 fi
 
-DOCKER="docker"
+DOCKER="docker"; NEED_SUDO_DOCKER=false
 if ! docker info >/dev/null 2>&1; then
     if [ -n "$SUDO" ] && $SUDO docker info >/dev/null 2>&1; then
-        DOCKER="$SUDO docker"
-        log_info "Using sudo for docker (current user can't reach the daemon yet)"
+        DOCKER="$SUDO docker"; NEED_SUDO_DOCKER=true
+        log_info "Using sudo for docker (you're not in the 'docker' group yet)"
     else
         log_err "Docker daemon not reachable. Start it: ${SUDO:+$SUDO }systemctl start docker"
         exit 1
@@ -150,6 +151,16 @@ if ! $DOCKER compose version >/dev/null 2>&1; then
     exit 1
 fi
 log_ok "Docker $($DOCKER --version | sed 's/Docker version //; s/,.*//') · Compose $($DOCKER compose version --short 2>/dev/null || echo ok)"
+# Offer to add the user to the docker group so they can manage dash without sudo.
+if [ "$NEED_SUDO_DOCKER" = true ] && [ "$(id -u)" -ne 0 ]; then
+    if confirm "Add '$USER' to the 'docker' group so you can manage dash without sudo? [Y/n]" Y; then
+        if $SUDO usermod -aG docker "$USER" 2>/dev/null; then
+            log_ok "Added $USER to the docker group — log out/in (or run 'newgrp docker') to use docker without sudo"
+        else
+            log_warn "Couldn't change the docker group; you'll keep using sudo for docker."
+        fi
+    fi
+fi
 
 # ---------------------------------------------------------------------------
 # [3/6] Existing install
@@ -209,6 +220,9 @@ fi
     echo "      - DASH_DB_PATH=/data/dashboard.db"
     [ -n "$TLS_HOSTS" ]   && echo "      - DASH_TLS_HOSTS=${TLS_HOSTS}"
     [ -n "$UPDATE_REPO" ] && echo "      - DASH_UPDATE_REPO=${UPDATE_REPO}"
+    # Record this install's directory so the in-app "update available" notice
+    # shows the exact command to run on this host.
+    [ -n "$UPDATE_REPO" ] && echo "      - DASH_UPDATE_COMMAND=cd ${DIR} && docker compose pull && docker compose up -d"
 } > "$DIR/docker-compose.yml"
 log_ok "Wrote compose file"
 

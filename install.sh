@@ -151,24 +151,29 @@ if ! $DOCKER compose version >/dev/null 2>&1; then
     exit 1
 fi
 log_ok "Docker $($DOCKER --version | sed 's/Docker version //; s/,.*//') · Compose $($DOCKER compose version --short 2>/dev/null || echo ok)"
-# Offer to add the user to the docker group so they can manage dash without sudo.
-GROUP_ADDED=false
+# Make docker usable without sudo going forward by adding the user to the 'docker'
+# group. Group membership only applies to *new* login sessions, so we always tell
+# them to log out/in. If they're already a member (just in a stale shell), say so
+# instead of re-adding.
+GROUP_ADDED=false; IN_DOCKER_GROUP=false
 if [ "$NEED_SUDO_DOCKER" = true ] && [ "$(id -u)" -ne 0 ]; then
-    if confirm "Add '$USER' to the 'docker' group so you can manage dash without sudo? [Y/n]" Y; then
+    if id -nG "$USER" 2>/dev/null | tr ' ' '\n' | grep -qx docker; then
+        IN_DOCKER_GROUP=true
+        log_info "You're in the 'docker' group, but this shell predates it — log out/in (or run 'newgrp docker') and docker won't need sudo."
+    elif confirm "Add '$USER' to the 'docker' group so you can manage dash without sudo? [Y/n]" Y; then
         if $SUDO usermod -aG docker "$USER" 2>/dev/null; then
             GROUP_ADDED=true
-            log_ok "Added $USER to the docker group — log out/in (or run 'newgrp docker') to use docker without sudo"
+            log_ok "Added $USER to the docker group — log out/in (or run 'newgrp docker') to use docker without sudo."
         else
             log_warn "Couldn't change the docker group; you'll keep using sudo for docker."
         fi
     fi
 fi
 
-# How docker should appear in the commands we record/print: include sudo when this
-# host needs it AND the user didn't just join the docker group (which removes the
-# need after they log back in).
+# How docker should appear in the commands we record/print: include sudo only if
+# this host needs it AND the user won't have group access after a re-login.
 DOCKER_DISPLAY="docker"
-if [ "$NEED_SUDO_DOCKER" = true ] && [ "$GROUP_ADDED" != true ]; then
+if [ "$NEED_SUDO_DOCKER" = true ] && [ "$GROUP_ADDED" != true ] && [ "$IN_DOCKER_GROUP" != true ]; then
     DOCKER_DISPLAY="sudo docker"
 fi
 

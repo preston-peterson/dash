@@ -1,0 +1,29 @@
+services:
+  dashboard:
+    # Local/source build. Once the image is published to GHCR, swap the line
+    # below for:  image: ghcr.io/preston-peterson/dash:latest
+    # then update with:  docker compose pull && docker compose up -d
+    build: .
+    container_name: dashboard
+    ports:
+      - "8443:8443"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+    environment:
+      - DASH_DB_PATH=/data/dashboard.db
+      - DASH_INTERVAL=30
+      - DASH_CHECK_TIMEOUT=4
+      - DASH_PORT=8443
+      # HTTPS: a self-signed cert is generated at /data/cert.pem + /data/key.pem on
+      # first run (persisted on the volume). To trust your own hostname/IP in the
+      # cert's SAN list, set DASH_TLS_HOSTS (comma-separated), e.g.:
+      # - DASH_TLS_HOSTS=dash.lan,192.168.1.10
+      # Or supply your own cert/key by mounting them and setting:
+      # - DASH_TLS_CERT=/data/cert.pem
+      # - DASH_TLS_KEY=/data/key.pem
+      # Update notifications: point at a GitHub repo to be told when a newer
+      # release is published. The gear menu then shows a copy-paste command to
+      # update. Off until DASH_UPDATE_REPO (or DASH_UPDATE_URL) is set.
+      # - DASH_UPDATE_REPO=preston-peterson/dash
+      # - DASH_UPDATE_COMMAND=docker compose pull && docker compose up -d

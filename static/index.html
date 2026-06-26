@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark light" />
+  <title>Dash</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='5' fill='%234fd1c5'/></svg>" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <!-- First-run admin setup -->
+  <div id="setup-screen" class="login-screen" hidden>
+    <form id="setup-form" class="login-card">
+      <div class="login-logo"><span class="dot online"></span> dash</div>
+      <p class="login-sub">Welcome. Create the admin account to get started.</p>
+      <label class="field">Username
+        <input id="setup-username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required />
+      </label>
+      <label class="field">Password <span class="hint">min 8 characters</span>
+        <input id="setup-password" type="password" autocomplete="new-password" required />
+      </label>
+      <label class="field">Confirm password
+        <input id="setup-password2" type="password" autocomplete="new-password" required />
+      </label>
+      <button type="submit" class="btn btn-accent">Create admin &amp; continue</button>
+      <div id="setup-error" class="login-error" hidden></div>
+    </form>
+  </div>
+
+  <!-- Login screen -->
+  <div id="login-screen" class="login-screen" hidden>
+    <form id="login-form" class="login-card">
+      <div class="login-logo"><span class="dot online"></span> dash</div>
+      <p class="login-sub">Sign in to continue.</p>
+      <label class="field">Username
+        <input id="login-username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required />
+      </label>
+      <label class="field">Password
+        <input id="login-password" type="password" autocomplete="current-password" required />
+      </label>
+      <button type="submit" class="btn btn-accent">Sign in</button>
+      <div id="login-error" class="login-error" hidden>Invalid username or password</div>
+    </form>
+  </div>
+
+  <!-- Main app -->
+  <div id="app" class="app" hidden>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-logo" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="8" rx="2"/><rect x="2" y="13" width="20" height="8" rx="2"/><line x1="6" y1="7" x2="6.01" y2="7"/><line x1="6" y1="17" x2="6.01" y2="17"/></svg></span>
+        <span class="brand-name">dash</span>
+      </div>
+
+      <div class="summary" id="summary">
+        <span class="count count-online"><span class="dot online"></span><b id="c-online">0</b> online</span>
+        <span class="count count-offline"><span class="dot offline"></span><b id="c-offline">0</b> offline</span>
+      </div>
+
+      <div class="actions">
+        <button id="btn-refresh" class="btn" title="Re-check all services">⟳ Refresh</button>
+        <button id="btn-add" class="btn btn-accent" title="Add a service">+ Add link</button>
+        <div class="user-menu" id="user-menu" hidden>
+          <button class="user-chip" id="user-chip" type="button" aria-haspopup="true" aria-expanded="false">
+            <span class="user-name" id="user-name"></span>
+            <span class="badge-admin" id="user-badge" hidden>admin</span>
+            <span class="caret" aria-hidden="true">▾</span>
+          </button>
+          <div class="menu-dropdown" id="user-dropdown" hidden role="menu">
+            <button class="menu-item" id="mi-account" type="button" role="menuitem">Change password</button>
+            <button class="menu-item" id="mi-users" type="button" role="menuitem" hidden>Manage users</button>
+            <div class="menu-sep"></div>
+            <button class="menu-item danger" id="mi-logout" type="button" role="menuitem">Log out</button>
+          </div>
+        </div>
+        <div class="user-menu" id="settings-menu">
+          <button class="btn btn-icon" id="settings-chip" type="button" aria-haspopup="true" aria-expanded="false" title="Settings">⚙</button>
+          <div class="menu-dropdown settings-pop" id="settings-dropdown" hidden role="menu">
+            <div class="menu-label">Layout</div>
+            <div class="seg-control" id="view-seg" role="group" aria-label="Layout">
+              <button data-view="tiles" type="button">Tiles</button>
+              <button data-view="rows" type="button">Rows</button>
+            </div>
+            <div class="menu-label">Theme</div>
+            <div class="seg-control" id="theme-seg" role="group" aria-label="Theme">
+              <button data-theme="auto" type="button">Auto</button>
+              <button data-theme="dark" type="button">Dark</button>
+              <button data-theme="light" type="button">Light</button>
+            </div>
+            <div class="menu-sep"></div>
+            <div class="update-box">
+              <div class="update-head">
+                <span class="update-ver" id="update-current">dash</span>
+                <span class="update-status" id="update-status"></span>
+              </div>
+              <div class="update-apply" id="update-apply" hidden>
+                <code class="update-cmd" id="update-cmd"></code>
+                <div class="update-links">
+                  <button type="button" class="btn-mini" id="update-copy">Copy</button>
+                  <a class="btn-mini" id="update-notes" target="_blank" rel="noopener">Release notes ↗</a>
+                </div>
+              </div>
+              <button type="button" class="link-btn" id="update-check" hidden>Check for updates</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="filter-row">
+      <input id="search" class="search" type="search" placeholder="Search services, tags, IPs…" autocomplete="off" />
+      <div id="tag-filters" class="tag-filters" hidden></div>
+    </div>
+
+    <main id="content" class="content"></main>
+
+    <div id="empty-state" class="empty-state" hidden>
+      <div class="empty-icon"><span class="dot unknown"></span></div>
+      <h2>No services yet</h2>
+      <p>Add your first service to start monitoring it.</p>
+      <button class="btn btn-accent" onclick="document.getElementById('btn-add').click()">+ Add your first service</button>
+    </div>
+
+    <div id="no-results" class="empty-state" hidden>
+      <h2>No matches</h2>
+      <p>No services match your search or tag filters.</p>
+    </div>
+  </div>
+
+  <!-- Add/Edit modal -->
+  <div id="modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <form id="link-form" class="modal-card">
+      <h2 id="modal-title">Add service</h2>
+      <input type="hidden" id="f-id" />
+
+      <label>Name
+        <input id="f-name" type="text" maxlength="200" required placeholder="Proxmox" />
+      </label>
+
+      <label>Description
+        <input id="f-description" type="text" maxlength="1000" placeholder="Hypervisor web UI" />
+      </label>
+
+      <div class="form-row">
+        <label class="grow">Host
+          <input id="f-host" type="text" maxlength="255" required placeholder="192.168.1.10" />
+        </label>
+        <label class="port">Port
+          <input id="f-port" type="number" min="1" max="65535" required placeholder="8006" />
+        </label>
+      </div>
+
+      <label>Tags <span class="hint">comma-separated</span>
+        <input id="f-tags" type="text" maxlength="500" placeholder="infra, virtualization" />
+      </label>
+
+      <div class="form-row">
+        <label class="grow">Check type
+          <select id="f-check_type">
+            <option value="tcp">tcp — port open</option>
+            <option value="http">http — any response</option>
+          </select>
+        </label>
+        <label class="grow">Scheme
+          <select id="f-scheme">
+            <option value="http">http</option>
+            <option value="https">https</option>
+          </select>
+        </label>
+      </div>
+
+      <p class="form-hint">Open URL &amp; http checks use <code id="url-preview">http://host:port</code></p>
+      <div id="form-error" class="form-error" hidden></div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn" data-close>Cancel</button>
+        <button type="submit" class="btn btn-accent" id="f-submit">Save</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Users management modal (admin) -->
+  <div id="users-modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card">
+      <h2>Users</h2>
+      <div id="users-list" class="users-list"></div>
+
+      <h3 class="modal-subhead">Add user</h3>
+      <form id="user-add-form" class="user-add">
+        <div class="form-row">
+          <label class="grow">Username
+            <input id="nu-username" type="text" maxlength="64" autocapitalize="none" spellcheck="false" required />
+          </label>
+          <label class="grow">Password <span class="hint">min 8</span>
+            <input id="nu-password" type="password" autocomplete="new-password" required />
+          </label>
+        </div>
+        <label class="field">Confirm password
+          <input id="nu-password2" type="password" autocomplete="new-password" required />
+        </label>
+        <label class="checkbox"><input id="nu-admin" type="checkbox" /> Administrator (can manage users)</label>
+        <div id="users-error" class="form-error" hidden></div>
+        <div class="modal-actions">
+          <button type="button" class="btn" data-close>Close</button>
+          <button type="submit" class="btn btn-accent">Add user</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Change / reset password modal -->
+  <div id="account-modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <form id="account-form" class="modal-card">
+      <h2 id="account-title">Change password</h2>
+      <p class="form-hint" id="account-sub"></p>
+      <label class="field">New password <span class="hint">min 8 characters</span>
+        <input id="account-password" type="password" autocomplete="new-password" required />
+      </label>
+      <label class="field">Confirm password
+        <input id="account-password2" type="password" autocomplete="new-password" required />
+      </label>
+      <div id="account-error" class="form-error" hidden></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" data-close>Cancel</button>
+        <button type="submit" class="btn btn-accent">Update password</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

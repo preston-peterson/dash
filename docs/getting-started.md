@@ -5,7 +5,21 @@
 - **Docker Engine** + the **Docker Compose plugin**. Nothing else — Python and all
   dependencies live inside the container.
 
-## Run it
+## Install it (one line)
+
+On any Linux host, the installer checks for Docker (and offers to install it),
+writes a compose file, starts dash, and prints where to open it:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/preston-peterson/dash/main/install.sh)
+```
+
+Useful flags: `--dir <path>`, `--port <n>`, `--tls-hosts <host,ip>`,
+`--update-repo <owner/repo>`, `-y` (non-interactive). Run with `--help` for the full
+list. *(The one-liner needs the repo to be public; until then, clone it and run
+`./install.sh` locally, or use Compose below.)*
+
+## Or run it with Compose
 
 ```bash
 docker compose up -d

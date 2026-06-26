@@ -27,6 +27,15 @@ Full docs live in [`docs/`](docs/README.md):
 
 ## Quick start
 
+**One line** on any Linux host — installs Docker if it's missing, then sets up and
+starts dash:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/preston-peterson/dash/main/install.sh)
+```
+
+Or, from a clone of this repo:
+
 ```bash
 docker compose up -d
 # open https://localhost:8443

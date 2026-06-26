@@ -152,14 +152,24 @@ if ! $DOCKER compose version >/dev/null 2>&1; then
 fi
 log_ok "Docker $($DOCKER --version | sed 's/Docker version //; s/,.*//') · Compose $($DOCKER compose version --short 2>/dev/null || echo ok)"
 # Offer to add the user to the docker group so they can manage dash without sudo.
+GROUP_ADDED=false
 if [ "$NEED_SUDO_DOCKER" = true ] && [ "$(id -u)" -ne 0 ]; then
     if confirm "Add '$USER' to the 'docker' group so you can manage dash without sudo? [Y/n]" Y; then
         if $SUDO usermod -aG docker "$USER" 2>/dev/null; then
+            GROUP_ADDED=true
             log_ok "Added $USER to the docker group — log out/in (or run 'newgrp docker') to use docker without sudo"
         else
             log_warn "Couldn't change the docker group; you'll keep using sudo for docker."
         fi
     fi
+fi
+
+# How docker should appear in the commands we record/print: include sudo when this
+# host needs it AND the user didn't just join the docker group (which removes the
+# need after they log back in).
+DOCKER_DISPLAY="docker"
+if [ "$NEED_SUDO_DOCKER" = true ] && [ "$GROUP_ADDED" != true ]; then
+    DOCKER_DISPLAY="sudo docker"
 fi
 
 # ---------------------------------------------------------------------------
@@ -168,7 +178,7 @@ fi
 log_step "3/6" "Checking for an existing dash install..."
 if $DOCKER ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "dash"; then
     log_warn "A container named 'dash' already exists."
-    log_info "To update: cd <dir> && $DOCKER compose pull && $DOCKER compose up -d"
+    log_info "To update: cd <dir> && $DOCKER_DISPLAY compose pull && $DOCKER_DISPLAY compose up -d"
     confirm "Reconfigure / redeploy anyway? [y/N]" N || { echo "  Aborted."; exit 0; }
 fi
 if [ -e "$DIR/docker-compose.yml" ]; then
@@ -220,9 +230,9 @@ fi
     echo "      - DASH_DB_PATH=/data/dashboard.db"
     [ -n "$TLS_HOSTS" ]   && echo "      - DASH_TLS_HOSTS=${TLS_HOSTS}"
     [ -n "$UPDATE_REPO" ] && echo "      - DASH_UPDATE_REPO=${UPDATE_REPO}"
-    # Record this install's directory so the in-app "update available" notice
-    # shows the exact command to run on this host.
-    [ -n "$UPDATE_REPO" ] && echo "      - DASH_UPDATE_COMMAND=cd ${DIR} && docker compose pull && docker compose up -d"
+    # Record this install's directory (and whether sudo is needed) so the in-app
+    # "update available" notice shows the exact command to run on this host.
+    [ -n "$UPDATE_REPO" ] && echo "      - DASH_UPDATE_COMMAND=cd ${DIR} && ${DOCKER_DISPLAY} compose pull && ${DOCKER_DISPLAY} compose up -d"
 } > "$DIR/docker-compose.yml"
 log_ok "Wrote compose file"
 
@@ -230,7 +240,12 @@ log_ok "Wrote compose file"
 # [6/6] Start + wait
 # ---------------------------------------------------------------------------
 log_step "6/6" "Starting dash..."
-( cd "$DIR" && $DOCKER compose up -d )
+if [ "$BUILD" = true ]; then
+    ( cd "$DIR" && $DOCKER compose up -d --build )
+else
+    # Pull first so re-running the installer also picks up a newer image.
+    ( cd "$DIR" && $DOCKER compose pull && $DOCKER compose up -d )
+fi
 
 log_info "Waiting for dash to answer on https://localhost:${PORT} ..."
 ok=false
@@ -260,7 +275,7 @@ echo -e "  ${YELLOW}First visit:${RESET} create your admin account."
 echo ""
 echo "  Directory: $DIR"
 echo -e "  Data:      $DIR/data   ${DIM}(links, users, TLS cert — back this up)${RESET}"
-echo "  Update:    cd $DIR && $DOCKER compose pull && $DOCKER compose up -d"
-echo "  Logs:      cd $DIR && $DOCKER compose logs -f"
-echo "  Stop:      cd $DIR && $DOCKER compose down"
+echo "  Update:    cd $DIR && $DOCKER_DISPLAY compose pull && $DOCKER_DISPLAY compose up -d"
+echo "  Logs:      cd $DIR && $DOCKER_DISPLAY compose logs -f"
+echo "  Stop:      cd $DIR && $DOCKER_DISPLAY compose down"
 echo ""

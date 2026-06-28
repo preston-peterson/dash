@@ -17,6 +17,9 @@ const state = {
 
 const $ = (sel) => document.querySelector(sel);
 
+// Tags selected in the Add/Edit modal (token input).
+let modalTags = [];
+
 /* --------------------------------------------------------------------- */
 /* API helper                                                            */
 /* --------------------------------------------------------------------- */
@@ -354,6 +357,48 @@ async function deleteLink(link) {
 /* --------------------------------------------------------------------- */
 /* Modal (add / edit)                                                    */
 /* --------------------------------------------------------------------- */
+/* --- Tag token input ------------------------------------------------- */
+function tagAllKnown() {
+  const set = new Set();
+  for (const link of state.links) for (const t of parseTags(link.tags)) set.add(t);
+  return [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+}
+
+function addTags(raw) {
+  for (const part of (raw || "").split(",")) {
+    const v = part.trim();
+    if (v && !modalTags.some((x) => x.toLowerCase() === v.toLowerCase())) modalTags.push(v);
+  }
+  renderTagInput();
+}
+
+function removeTag(t) {
+  modalTags = modalTags.filter((x) => x !== t);
+  renderTagInput();
+}
+
+function renderTagInput() {
+  const box = $("#f-tags-box"), entry = $("#f-tags-entry");
+  box.querySelectorAll(".tag-token").forEach((n) => n.remove());
+  for (const t of modalTags) {
+    box.insertBefore(
+      el("span", { class: "tag-token" }, [
+        document.createTextNode(t),
+        el("button", { type: "button", class: "tag-x", title: "Remove", text: "×", onclick: () => removeTag(t) }),
+      ]),
+      entry
+    );
+  }
+  const selected = new Set(modalTags.map((x) => x.toLowerCase()));
+  const sug = $("#f-tags-suggest");
+  sug.replaceChildren();
+  for (const t of tagAllKnown()) {
+    if (selected.has(t.toLowerCase())) continue;
+    sug.append(el("button", { type: "button", class: "tag-sug", text: t, onclick: () => addTags(t) }));
+  }
+  $("#f-tags").value = modalTags.join(", ");
+}
+
 function openModal(link) {
   const editing = !!link;
   $("#modal-title").textContent = editing ? "Edit service" : "Add service";
@@ -362,7 +407,9 @@ function openModal(link) {
   $("#f-description").value = editing ? link.description : "";
   $("#f-host").value = editing ? link.host : "";
   $("#f-port").value = editing ? link.port : "";
-  $("#f-tags").value = editing ? link.tags : "";
+  modalTags = editing ? parseTags(link.tags) : [];
+  $("#f-tags-entry").value = "";
+  renderTagInput();
   $("#f-check_type").value = editing ? link.check_type : "tcp";
   $("#f-scheme").value = editing ? link.scheme : "http";
   $("#form-error").hidden = true;
@@ -382,6 +429,8 @@ function updateUrlPreview() {
 
 async function submitForm(e) {
   e.preventDefault();
+  // Commit any tag still typed in the entry box.
+  if ($("#f-tags-entry").value.trim()) { addTags($("#f-tags-entry").value); $("#f-tags-entry").value = ""; }
   const id = $("#f-id").value;
   const payload = {
     name: $("#f-name").value,
@@ -733,6 +782,13 @@ function init() {
   $("#f-host").addEventListener("input", updateUrlPreview);
   $("#f-port").addEventListener("input", updateUrlPreview);
   $("#f-scheme").addEventListener("change", updateUrlPreview);
+
+  $("#f-tags-entry").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTags(e.target.value); e.target.value = ""; }
+    else if (e.key === "Backspace" && !e.target.value && modalTags.length) { removeTag(modalTags[modalTags.length - 1]); }
+  });
+  $("#f-tags-entry").addEventListener("blur", (e) => { if (e.target.value.trim()) { addTags(e.target.value); e.target.value = ""; } });
+  $("#f-tags-box").addEventListener("mousedown", (e) => { if (e.target.id === "f-tags-box") { e.preventDefault(); $("#f-tags-entry").focus(); } });
 
   // Close buttons/backdrops dismiss their own modal.
   for (const node of document.querySelectorAll("[data-close]")) {

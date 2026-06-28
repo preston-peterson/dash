@@ -151,9 +151,14 @@
         </label>
       </div>
 
-      <label>Tags <span class="hint">comma-separated</span>
-        <input id="f-tags" type="text" maxlength="500" placeholder="infra, virtualization" />
+      <label class="tags-field">
+        <span class="tags-head">Tags <span class="hint">click a tag, or type and press Enter</span></span>
+        <div id="f-tags-box" class="tag-input">
+          <input id="f-tags-entry" class="tag-entry" type="text" placeholder="add a tag…" autocomplete="off" />
+        </div>
+        <div id="f-tags-suggest" class="tag-suggest"></div>
       </label>
+      <input type="hidden" id="f-tags" />
 
       <div class="form-row">
         <label class="grow">Check type

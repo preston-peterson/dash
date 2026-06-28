@@ -607,6 +607,69 @@ input::placeholder { color: var(--faint); }
 .link-btn:hover { text-decoration: underline; }
 .link-btn.danger { color: var(--offline); }
 
+/* ----------------------------------------------------------------------- */
+/* Tag token input (Add/Edit service)                                      */
+/* ----------------------------------------------------------------------- */
+.tags-head { font-size: 12.5px; color: var(--muted); }
+.tag-input {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 6px 8px;
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: text;
+}
+.tag-input:focus-within { border-color: var(--accent); }
+.tag-entry {
+  flex: 1;
+  min-width: 120px;
+  border: none;
+  background: none;
+  padding: 2px;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+}
+.tag-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--on-accent);
+  background: var(--accent);
+  border-radius: 5px;
+  padding: 2px 5px 2px 8px;
+}
+.tag-token .tag-x {
+  background: none;
+  border: none;
+  color: var(--on-accent);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 1px;
+  opacity: 0.85;
+}
+.tag-token .tag-x:hover { opacity: 1; }
+.tag-suggest { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+.tag-sug {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 9px;
+  cursor: pointer;
+}
+.tag-sug:hover { border-color: var(--accent); color: var(--text); }
+.tag-suggest:empty { display: none; }
+
 [hidden] { display: none !important; }
 
 @media (max-width: 720px) {

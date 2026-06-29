@@ -6,6 +6,11 @@ All notable changes to dash are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Service favicons: each service shows its own icon, fetched server-side from the
+  service itself (offline-safe on a LAN) and cached, with a colored-initial fallback
+  and a status badge.
+
 ## [0.1.2] - 2026-06-29
 
 ### Added

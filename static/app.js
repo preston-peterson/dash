@@ -224,6 +224,31 @@ function statusDot(link) {
   });
 }
 
+// Service icon: the service's favicon (or a colored initial) with a status badge.
+// Also doubles as the per-item re-check control.
+function serviceAvatar(link) {
+  const av = el("div", {
+    class: "avatar " + link.status, role: "button", title: "Re-check now",
+    onclick: (e) => { e.stopPropagation(); refreshOne(link.id); },
+  });
+  const setInitial = () => {
+    av.classList.add("noimg");
+    let h = 0;
+    for (const c of (link.name || "?")) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    av.style.background = `hsl(${h % 360}, 45%, 42%)`;
+    av.append(el("span", { class: "avatar-initial", text: ((link.name || "?").trim()[0] || "?").toUpperCase() }));
+  };
+  if (link.favicon) {
+    const img = el("img", { src: `/api/links/${link.id}/favicon?v=${encodeURIComponent(link.favicon)}`, alt: "", loading: "lazy" });
+    img.addEventListener("error", () => { img.remove(); setInitial(); });
+    av.append(img);
+  } else {
+    setInitial();
+  }
+  av.append(el("span", { class: "avatar-badge" }));
+  return av;
+}
+
 function tagNodes(link) {
   return parseTags(link.tags).map((t) =>
     el("span", {
@@ -260,7 +285,7 @@ function buildCard(link) {
     ...[
       el("div", { class: "item-actions" }, itemActions(link, false)),
       el("div", { class: "card-head" }, [
-        statusDot(link),
+        serviceAvatar(link),
         el("span", { class: "card-name", text: link.name }),
       ]),
       el("div", { class: "card-addr", text: `${link.host}:${link.port}` }),
@@ -292,7 +317,7 @@ function buildRow(link) {
     onclick: () => window.open(openUrl(link), "_blank", "noopener"),
   });
   row.append(
-    statusDot(link),
+    serviceAvatar(link),
     el("div", { class: "row-service" }, [
       el("div", { class: "row-name", text: link.name }),
       link.description ? el("div", { class: "row-desc", text: link.description }) : null,

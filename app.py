@@ -15,6 +15,7 @@ import hashlib
 import hmac
 import ipaddress
 import os
+import re
 import secrets
 import socket
 import sqlite3
@@ -24,6 +25,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal, Optional
+from urllib.parse import urljoin
 
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
@@ -122,6 +124,16 @@ def init_db() -> None:
                 token      TEXT PRIMARY KEY,
                 user_id    INTEGER NOT NULL,
                 created_at TEXT NOT NULL
+            )
+            """
+        )
+        _conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS favicons (
+                link_id      INTEGER PRIMARY KEY,
+                content_type TEXT NOT NULL,
+                data         BLOB NOT NULL,
+                fetched_at   TEXT NOT NULL
             )
             """
         )
@@ -263,6 +275,34 @@ def db_del_session(token: str) -> None:
     with _db_lock:
         _conn.execute("DELETE FROM sessions WHERE token=?", (token,))
         _conn.commit()
+
+
+# ----- favicons ------------------------------------------------------------- #
+def db_set_favicon(link_id: int, content_type: str, data: bytes, ts: str) -> None:
+    with _db_lock:
+        _conn.execute(
+            "INSERT OR REPLACE INTO favicons (link_id, content_type, data, fetched_at) VALUES (?, ?, ?, ?)",
+            (link_id, content_type, sqlite3.Binary(data), ts),
+        )
+        _conn.commit()
+
+
+def db_get_favicon(link_id: int):
+    with _db_lock:
+        row = _conn.execute("SELECT content_type, data FROM favicons WHERE link_id=?", (link_id,)).fetchone()
+    return (row["content_type"], bytes(row["data"])) if row else None
+
+
+def db_delete_favicon(link_id: int) -> None:
+    with _db_lock:
+        _conn.execute("DELETE FROM favicons WHERE link_id=?", (link_id,))
+        _conn.commit()
+
+
+def db_favicon_meta() -> dict:
+    with _db_lock:
+        rows = _conn.execute("SELECT link_id, fetched_at FROM favicons").fetchall()
+    return {r["link_id"]: r["fetched_at"] for r in rows}
 
 
 # --------------------------------------------------------------------------- #
@@ -422,6 +462,8 @@ async def check_link(link: dict) -> dict:
         "last_checked": now_iso(),
         "resolved": resolved,
     }
+    if link_id not in favicon_tried:
+        asyncio.create_task(ensure_favicon(link))
     return status_cache[link_id]
 
 
@@ -438,6 +480,82 @@ async def _checker_loop() -> None:
         except Exception:
             pass
         await asyncio.sleep(INTERVAL)
+
+
+# --------------------------------------------------------------------------- #
+# Favicons (best-effort: fetch each service's own icon; offline-safe on a LAN)
+# --------------------------------------------------------------------------- #
+favicon_meta: dict[int, str] = {}   # link_id -> fetched_at (presence + cache-bust token)
+favicon_tried: set[int] = set()     # link_ids attempted this run (don't retry every cycle)
+FAVICON_MAX_BYTES = 512 * 1024
+_FAVICON_TYPES = {
+    "image/x-icon", "image/vnd.microsoft.icon", "image/png", "image/gif",
+    "image/jpeg", "image/svg+xml", "image/webp", "image/bmp",
+}
+
+
+def _looks_like_image(content_type: str, data: bytes) -> bool:
+    if (content_type or "").split(";")[0].strip().lower() in _FAVICON_TYPES:
+        return True
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return True
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return True
+    if data[:2] == b"\xff\xd8":                       # JPEG
+        return True
+    if data[:4] == b"\x00\x00\x01\x00":               # ICO
+        return True
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return True
+    if b"<svg" in data[:300].lower():
+        return True
+    return False
+
+
+async def _fetch_favicon(link: dict):
+    base = f"{link['scheme']}://{link['host']}:{link['port']}"
+    urls: list[str] = []
+    try:  # parse the homepage for <link rel="...icon..." href="...">
+        resp = await http_client.get(base + "/", timeout=CHECK_TIMEOUT)
+        for tag in re.findall(r"<link\b[^>]*>", resp.text[:200000], re.I):
+            if re.search(r'rel\s*=\s*["\']?[^"\'>]*icon', tag, re.I):
+                href = re.search(r'href\s*=\s*["\']([^"\']+)["\']', tag, re.I)
+                if href:
+                    urls.append(urljoin(base + "/", href.group(1)))
+    except Exception:
+        pass
+    urls.append(base + "/favicon.ico")
+    seen = set()
+    for url in urls:
+        if url in seen:
+            continue
+        seen.add(url)
+        try:
+            resp = await http_client.get(url, timeout=CHECK_TIMEOUT)
+            data = resp.content
+            if resp.status_code == 200 and 0 < len(data) <= FAVICON_MAX_BYTES and \
+                    _looks_like_image(resp.headers.get("content-type", ""), data):
+                ct = resp.headers.get("content-type", "").split(";")[0].strip() or "image/x-icon"
+                return ct, data
+        except Exception:
+            pass
+    return None
+
+
+async def ensure_favicon(link: dict) -> None:
+    lid = link["id"]
+    if lid in favicon_tried:
+        return
+    favicon_tried.add(lid)
+    try:
+        got = await _fetch_favicon(link)
+    except Exception:
+        got = None
+    if got:
+        ct, data = got
+        ts = now_iso()
+        await asyncio.to_thread(db_set_favicon, lid, ct, data, ts)
+        favicon_meta[lid] = ts
 
 
 # --------------------------------------------------------------------------- #
@@ -519,6 +637,7 @@ async def lifespan(app: FastAPI):
     http_client = httpx.AsyncClient(verify=False, follow_redirects=True)
     for link in db_all_links():
         status_cache.setdefault(link["id"], dict(UNKNOWN))
+    favicon_meta.update(db_favicon_meta())
     tasks = [asyncio.create_task(_checker_loop()), asyncio.create_task(_update_loop())]
     try:
         yield
@@ -726,6 +845,7 @@ def serialize(link: dict) -> dict:
         "latency_ms": st.get("latency_ms"),
         "last_checked": st.get("last_checked"),
         "resolved": st.get("resolved"),
+        "favicon": favicon_meta.get(link["id"]),
     }
 
 
@@ -748,6 +868,10 @@ async def api_update_link(link_id: int, body: LinkIn):
     link = await asyncio.to_thread(db_update_link, link_id, body.model_dump())
     if link is None:
         raise HTTPException(status_code=404, detail="Link not found")
+    # Host/port/scheme may have changed — drop the cached favicon so it re-fetches.
+    favicon_meta.pop(link_id, None)
+    favicon_tried.discard(link_id)
+    await asyncio.to_thread(db_delete_favicon, link_id)
     asyncio.create_task(check_link(link))
     return serialize(link)
 
@@ -757,7 +881,19 @@ async def api_delete_link(link_id: int):
     if not await asyncio.to_thread(db_delete_link, link_id):
         raise HTTPException(status_code=404, detail="Link not found")
     status_cache.pop(link_id, None)
+    favicon_meta.pop(link_id, None)
+    favicon_tried.discard(link_id)
+    await asyncio.to_thread(db_delete_favicon, link_id)
     return {"ok": True}
+
+
+@app.get("/api/links/{link_id}/favicon", dependencies=[Depends(require_auth)])
+async def api_link_favicon(link_id: int):
+    row = await asyncio.to_thread(db_get_favicon, link_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="No favicon")
+    content_type, data = row
+    return Response(content=data, media_type=content_type, headers={"Cache-Control": "public, max-age=86400"})
 
 
 @app.post("/api/links/{link_id}/check", dependencies=[Depends(require_auth)])

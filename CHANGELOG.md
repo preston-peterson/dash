@@ -6,9 +6,15 @@ All notable changes to dash are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-06-29
+
 ### Added
 - Tag picker on the Add/Edit service form: click existing tags to toggle them, or
   type new ones (Enter/comma to commit, Backspace removes the last).
+
+### Project
+- Repo hardening: MIT license, CONTRIBUTING/SECURITY docs, issue/PR templates, a CI
+  workflow (build + smoke test + gitleaks), and Dependabot.
 
 ## [0.1.1] - 2026-06-26
 
@@ -34,6 +40,7 @@ All notable changes to dash are documented here. The format follows
 - Optional GitHub-release update notifications.
 - Docker + Compose, a one-line installer, and a GHCR publish workflow.
 
-[Unreleased]: https://github.com/preston-peterson/dash/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/preston-peterson/dash/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/preston-peterson/dash/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/preston-peterson/dash/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/preston-peterson/dash/releases/tag/v0.1.0

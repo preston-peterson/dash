@@ -380,6 +380,49 @@ async function deleteLink(link) {
 }
 
 /* --------------------------------------------------------------------- */
+/* Export / import                                                       */
+/* --------------------------------------------------------------------- */
+function exportLinks() {
+  closeMenus();
+  const links = state.links.map((l) => ({
+    name: l.name, description: l.description, host: l.host, port: l.port,
+    tags: l.tags, check_type: l.check_type, scheme: l.scheme,
+  }));
+  const payload = { dash: "links", version: 1, exported_at: new Date().toISOString(), links };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = el("a", { href: url, download: `dash-links-${new Date().toISOString().slice(0, 10)}.json` });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function handleImportFile(file) {
+  if (!file) return;
+  let parsed;
+  try {
+    parsed = JSON.parse(await file.text());
+  } catch (_) {
+    alert("Import failed: that file isn't valid JSON.");
+    return;
+  }
+  const links = Array.isArray(parsed) ? parsed : (parsed && parsed.links);
+  if (!Array.isArray(links)) {
+    alert('Import failed: no "links" array found in the file.');
+    return;
+  }
+  try {
+    const res = await api("POST", "/api/links/import", { links });
+    await loadLinks();
+    const skip = res.skipped ? `, skipped ${res.skipped} duplicate${res.skipped === 1 ? "" : "s"}` : "";
+    alert(`Imported ${res.added} link${res.added === 1 ? "" : "s"}${skip}.`);
+  } catch (e) {
+    if (!onApiError(e)) alert("Import failed: " + e.message);
+  }
+}
+
+/* --------------------------------------------------------------------- */
 /* Modal (add / edit)                                                    */
 /* --------------------------------------------------------------------- */
 /* --- Tag token input ------------------------------------------------- */
@@ -794,6 +837,9 @@ function init() {
     b.addEventListener("click", () => setTheme(b.dataset.theme));
   $("#update-check").addEventListener("click", checkUpdate);
   $("#update-copy").addEventListener("click", copyUpdateCommand);
+  $("#mi-export").addEventListener("click", exportLinks);
+  $("#mi-import").addEventListener("click", () => { closeMenus(); $("#import-file").click(); });
+  $("#import-file").addEventListener("change", (e) => { handleImportFile(e.target.files[0]); e.target.value = ""; });
 
   document.addEventListener("click", (e) => {
     if (!e.target.closest("#user-menu") && !e.target.closest("#settings-menu")) closeMenus();

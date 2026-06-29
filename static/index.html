@@ -88,6 +88,10 @@
               <button data-theme="light" type="button">Light</button>
             </div>
             <div class="menu-sep"></div>
+            <div class="menu-label">Data</div>
+            <button class="menu-item" id="mi-export" type="button">Export links</button>
+            <button class="menu-item" id="mi-import" type="button">Import links…</button>
+            <div class="menu-sep"></div>
             <div class="update-box">
               <div class="update-head">
                 <span class="update-ver" id="update-current">dash</span>
@@ -234,6 +238,8 @@
       </div>
     </form>
   </div>
+
+  <input type="file" id="import-file" accept="application/json,.json" hidden />
 
   <script src="/static/app.js"></script>
 </body>

@@ -10,6 +10,8 @@ All notable changes to dash are documented here. The format follows
 - Service favicons: each service shows its own icon, fetched server-side from the
   service itself (offline-safe on a LAN) and cached, with a colored-initial fallback
   and a status badge.
+- Export / import links as JSON (gear menu → Data). Export downloads a file; import
+  adds links from a file and skips duplicates. New endpoint `POST /api/links/import`.
 
 ## [0.1.2] - 2026-06-29
 

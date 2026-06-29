@@ -684,6 +684,10 @@ class LinkIn(BaseModel):
         return v.strip()
 
 
+class ImportIn(BaseModel):
+    links: list[LinkIn] = Field(default_factory=list, max_length=2000)
+
+
 class Credentials(BaseModel):
     username: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=1, max_length=256)
@@ -861,6 +865,24 @@ async def api_create_link(body: LinkIn):
     status_cache[link["id"]] = dict(UNKNOWN)
     asyncio.create_task(check_link(link))
     return serialize(link)
+
+
+@app.post("/api/links/import", dependencies=[Depends(require_auth)])
+async def api_import_links(body: ImportIn):
+    existing = await asyncio.to_thread(db_all_links)
+    seen = {(l["name"].lower(), l["host"].lower(), int(l["port"])) for l in existing}
+    added = skipped = 0
+    for item in body.links:
+        key = (item.name.lower(), item.host.lower(), item.port)
+        if key in seen:
+            skipped += 1
+            continue
+        link = await asyncio.to_thread(db_create_link, item.model_dump())
+        status_cache[link["id"]] = dict(UNKNOWN)
+        asyncio.create_task(check_link(link))
+        seen.add(key)
+        added += 1
+    return {"added": added, "skipped": skipped}
 
 
 @app.put("/api/links/{link_id}", dependencies=[Depends(require_auth)])

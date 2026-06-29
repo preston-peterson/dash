@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Least privilege by default.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Syntax checks
+        run: |
+          python3 -m py_compile app.py
+          node --check static/app.js
+
+      - name: Build image
+        run: docker build -t dash:ci .
+
+      - name: Smoke test (HTTPS + /api/me)
+        run: |
+          mkdir -p ci-data
+          docker run -d --name dash-ci -e DASH_DB_PATH=/data/dashboard.db \
+            -v "$PWD/ci-data:/data" -p 8443:8443 dash:ci
+          ok=
+          for _ in $(seq 1 30); do
+            if curl -ksf https://localhost:8443/api/me >/dev/null; then ok=1; break; fi
+            sleep 1
+          done
+          [ -n "$ok" ] || { echo "dash did not come up"; docker logs dash-ci; exit 1; }
+          curl -ks https://localhost:8443/api/me | grep -q '"version"' && echo "smoke OK"
+
+      - name: Container logs (on failure)
+        if: failure()
+        run: docker logs dash-ci || true
+
+  secret-scan:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

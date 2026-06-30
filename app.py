@@ -98,6 +98,7 @@ def init_db() -> None:
                 tags        TEXT NOT NULL DEFAULT '',
                 check_type  TEXT NOT NULL DEFAULT 'tcp',
                 scheme      TEXT NOT NULL DEFAULT 'http',
+                sort_order  INTEGER NOT NULL DEFAULT 0,
                 created_at  TEXT NOT NULL,
                 updated_at  TEXT NOT NULL
             )
@@ -137,6 +138,13 @@ def init_db() -> None:
             )
             """
         )
+        # links.sort_order added in a later version; backfill existing rows by name.
+        lcols = [r[1] for r in _conn.execute("PRAGMA table_info(links)").fetchall()]
+        if "sort_order" not in lcols:
+            _conn.execute("ALTER TABLE links ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0")
+            ordered = _conn.execute("SELECT id FROM links ORDER BY name COLLATE NOCASE, id").fetchall()
+            for i, r in enumerate(ordered):
+                _conn.execute("UPDATE links SET sort_order=? WHERE id=?", ((i + 1) * 10, r[0]))
         _conn.commit()
 
 
@@ -145,7 +153,7 @@ _LINK_COLS = ("name", "description", "host", "port", "tags", "check_type", "sche
 
 def db_all_links() -> list[dict]:
     with _db_lock:
-        rows = _conn.execute("SELECT * FROM links ORDER BY name COLLATE NOCASE").fetchall()
+        rows = _conn.execute("SELECT * FROM links ORDER BY sort_order, name COLLATE NOCASE").fetchall()
     return [dict(r) for r in rows]
 
 
@@ -159,11 +167,12 @@ def db_create_link(data: dict) -> dict:
     ts = now_iso()
     vals = tuple(data[c] for c in _LINK_COLS)
     with _db_lock:
+        nxt = _conn.execute("SELECT COALESCE(MAX(sort_order), 0) + 10 FROM links").fetchone()[0]
         cur = _conn.execute(
             """INSERT INTO links (name, description, host, port, tags, check_type, scheme,
-                                  created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (*vals, ts, ts),
+                                  sort_order, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (*vals, nxt, ts, ts),
         )
         _conn.commit()
         row = _conn.execute("SELECT * FROM links WHERE id=?", (cur.lastrowid,)).fetchone()
@@ -192,6 +201,13 @@ def db_delete_link(link_id: int) -> bool:
         cur = _conn.execute("DELETE FROM links WHERE id=?", (link_id,))
         _conn.commit()
     return cur.rowcount > 0
+
+
+def db_reorder(ids: list) -> None:
+    with _db_lock:
+        for i, lid in enumerate(ids):
+            _conn.execute("UPDATE links SET sort_order=? WHERE id=?", ((i + 1) * 10, int(lid)))
+        _conn.commit()
 
 
 # ----- users & sessions ----------------------------------------------------- #
@@ -688,6 +704,10 @@ class ImportIn(BaseModel):
     links: list[LinkIn] = Field(default_factory=list, max_length=2000)
 
 
+class ReorderIn(BaseModel):
+    ids: list[int] = Field(default_factory=list, max_length=4000)
+
+
 class Credentials(BaseModel):
     username: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=1, max_length=256)
@@ -883,6 +903,12 @@ async def api_import_links(body: ImportIn):
         seen.add(key)
         added += 1
     return {"added": added, "skipped": skipped}
+
+
+@app.post("/api/links/reorder", dependencies=[Depends(require_auth)])
+async def api_reorder_links(body: ReorderIn):
+    await asyncio.to_thread(db_reorder, body.ids)
+    return {"ok": True}
 
 
 @app.put("/api/links/{link_id}", dependencies=[Depends(require_auth)])

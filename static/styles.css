@@ -262,13 +262,31 @@ input::placeholder { color: var(--faint); }
   padding-bottom: 11px;
 }
 .row {
+  position: relative;
   border-bottom: 1px solid var(--divider);
   cursor: pointer;
   transition: background 0.1s;
 }
 .row:last-child { border-bottom: none; }
 .row:hover { background: var(--elevated); }
+.row.dragging { opacity: 0.45; }
 .row .dot { width: 11px; height: 11px; }
+.row-grip {
+  position: absolute;
+  left: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--faint);
+  font-size: 13px;
+  line-height: 1;
+  cursor: grab;
+  opacity: 0;
+  user-select: none;
+  transition: opacity 0.12s;
+}
+.row:hover .row-grip { opacity: 0.6; }
+.row-grip:hover { opacity: 1; }
+.row-grip:active { cursor: grabbing; }
 .row-service { min-width: 0; }
 .row-name { font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row-desc { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

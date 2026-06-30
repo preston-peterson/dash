@@ -12,6 +12,7 @@ const state = {
   user: null,
   pwTarget: null,
   update: null,
+  dragId: null,
   pollTimer: null,
 };
 
@@ -135,6 +136,42 @@ function visibleLinks() {
   });
 }
 
+function isFiltered() {
+  return state.search.trim() !== "" || state.activeTags.size > 0;
+}
+
+function rowAfterPointer(container, y) {
+  for (const r of container.querySelectorAll(".row:not(.dragging)")) {
+    const box = r.getBoundingClientRect();
+    if (y < box.top + box.height / 2) return r;
+  }
+  return null;
+}
+
+function onTableDragOver(e) {
+  e.preventDefault();
+  const table = e.currentTarget;
+  const dragging = table.querySelector(".row.dragging");
+  if (!dragging) return;
+  const after = rowAfterPointer(table, e.clientY);
+  if (after == null) table.append(dragging);
+  else table.insertBefore(dragging, after);
+}
+
+async function persistOrder() {
+  const table = $(".rows-table");
+  if (!table) return;
+  const ids = [...table.querySelectorAll(".row")].map((r) => Number(r.dataset.id));
+  if (ids.join(",") === state.links.map((l) => l.id).join(",")) return; // unchanged
+  const byId = new Map(state.links.map((l) => [l.id, l]));
+  state.links = ids.map((id) => byId.get(id)).filter(Boolean);
+  try {
+    await api("POST", "/api/links/reorder", { ids });
+  } catch (e) {
+    if (!onApiError(e)) loadLinks();
+  }
+}
+
 function render() {
   // Summary counts (over all links, not filtered)
   $("#c-online").textContent = state.links.filter((l) => l.status === "online").length;
@@ -158,6 +195,7 @@ function render() {
     const table = el("div", { class: "rows-table" });
     table.append(rowHeader());
     for (const link of items) table.append(buildRow(link));
+    table.addEventListener("dragover", onTableDragOver);
     content.append(table);
   } else {
     for (const link of items) content.append(buildCard(link));
@@ -314,7 +352,16 @@ function rowHeader() {
 function buildRow(link) {
   const row = el("div", {
     class: "row", title: `Open ${openUrl(link)}`,
+    "data-id": link.id,
+    draggable: !isFiltered(),
     onclick: () => window.open(openUrl(link), "_blank", "noopener"),
+    ondragstart: (e) => {
+      state.dragId = link.id;
+      row.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      try { e.dataTransfer.setData("text/plain", String(link.id)); } catch (_) {}
+    },
+    ondragend: () => { row.classList.remove("dragging"); state.dragId = null; persistOrder(); },
   });
   row.append(
     serviceAvatar(link),
@@ -330,6 +377,9 @@ function buildRow(link) {
     rowStatus(link),
     el("div", { class: "row-actions" }, itemActions(link, true))
   );
+  if (!isFiltered()) {
+    row.append(el("span", { class: "row-grip", title: "Drag to reorder", text: "⠿", onclick: (e) => e.stopPropagation() }));
+  }
   return row;
 }
 

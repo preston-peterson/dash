@@ -6,6 +6,11 @@ All notable changes to dash are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Drag-and-drop reordering of services in rows view (grab the handle to set a custom
+  order; new links append at the end). New endpoint `POST /api/links/reorder`;
+  reordering is disabled while a search/tag filter is active.
+
 ## [0.1.3] - 2026-06-29
 
 ### Added

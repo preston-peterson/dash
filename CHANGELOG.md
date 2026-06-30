@@ -6,6 +6,8 @@ All notable changes to dash are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-06-29
+
 ### Added
 - Service favicons: each service shows its own icon, fetched server-side from the
   service itself (offline-safe on a LAN) and cached, with a colored-initial fallback
@@ -47,7 +49,8 @@ All notable changes to dash are documented here. The format follows
 - Optional GitHub-release update notifications.
 - Docker + Compose, a one-line installer, and a GHCR publish workflow.
 
-[Unreleased]: https://github.com/preston-peterson/dash/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/preston-peterson/dash/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/preston-peterson/dash/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/preston-peterson/dash/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/preston-peterson/dash/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/preston-peterson/dash/releases/tag/v0.1.0

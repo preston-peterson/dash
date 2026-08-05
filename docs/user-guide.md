@@ -15,6 +15,7 @@ Click **+ Add link** and fill in the form:
 | **Tags** | Comma-separated; become filter chips |
 | **Check type** | `tcp` (is the port open?) or `http` (any response = up) |
 | **Scheme** | `http` / `https` — used for the open link and for http checks |
+| **Notes** | Free-form private notes; a small note icon appears next to the name, hover it to read them |
 
 The preview line shows the URL the card/row opens and that http checks use:
 `scheme://host:port`.

@@ -236,6 +236,7 @@ const ICONS = {
   open: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
   edit: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>',
   trash: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
+  note: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
 };
 
 function iconBtn(icon, title, cls, onclick) {
@@ -243,6 +244,14 @@ function iconBtn(icon, title, cls, onclick) {
   b.innerHTML = ICONS[icon];
   b.addEventListener("click", (e) => { e.stopPropagation(); onclick(); });
   return b;
+}
+
+// Small indicator shown when a link has notes; hover reveals the note text.
+function noteBadge(link) {
+  if (!link.notes) return null;
+  const s = el("span", { class: "note-badge", title: link.notes, onclick: (e) => e.stopPropagation() });
+  s.innerHTML = ICONS.note;
+  return s;
 }
 
 // withOpen adds an explicit "open service" shortcut (used in the rows view).
@@ -325,6 +334,7 @@ function buildCard(link) {
       el("div", { class: "card-head" }, [
         serviceAvatar(link),
         el("span", { class: "card-name", text: link.name }),
+        noteBadge(link),
       ]),
       el("div", { class: "card-addr", text: `${link.host}:${link.port}` }),
       link.resolved ? el("div", { class: "card-host", title: "Resolved via DNS", text: link.resolved }) : null,
@@ -366,7 +376,7 @@ function buildRow(link) {
   row.append(
     serviceAvatar(link),
     el("div", { class: "row-service" }, [
-      el("div", { class: "row-name", text: link.name }),
+      el("div", { class: "row-name" }, [link.name, noteBadge(link)]),
       link.description ? el("div", { class: "row-desc", text: link.description }) : null,
     ]),
     el("div", { class: "row-addr" }, [
@@ -436,7 +446,7 @@ function exportLinks() {
   closeMenus();
   const links = state.links.map((l) => ({
     name: l.name, description: l.description, host: l.host, port: l.port,
-    tags: l.tags, check_type: l.check_type, scheme: l.scheme,
+    tags: l.tags, check_type: l.check_type, scheme: l.scheme, notes: l.notes,
   }));
   const payload = { dash: "links", version: 1, exported_at: new Date().toISOString(), links };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -530,6 +540,7 @@ function openModal(link) {
   renderTagInput();
   $("#f-check_type").value = editing ? link.check_type : "tcp";
   $("#f-scheme").value = editing ? link.scheme : "http";
+  $("#f-notes").value = editing ? link.notes || "" : "";
   $("#form-error").hidden = true;
   updateUrlPreview();
   $("#modal").hidden = false;
@@ -558,6 +569,7 @@ async function submitForm(e) {
     tags: $("#f-tags").value,
     check_type: $("#f-check_type").value,
     scheme: $("#f-scheme").value,
+    notes: $("#f-notes").value,
   };
   try {
     if (id) await api("PUT", `/api/links/${id}`, payload);

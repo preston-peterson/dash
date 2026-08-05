@@ -102,7 +102,7 @@ body {
 .btn-accent:hover { filter: brightness(1.08); }
 .btn-icon { padding: 7px 10px; }
 
-input, select {
+input, select, textarea {
   font-family: var(--font-sans);
   font-size: 13px;
   color: var(--text);
@@ -112,8 +112,9 @@ input, select {
   padding: 8px 10px;
   outline: none;
 }
-input:focus, select:focus { border-color: var(--accent); }
-input::placeholder { color: var(--faint); }
+input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+input::placeholder, textarea::placeholder { color: var(--faint); }
+textarea { resize: vertical; min-height: 56px; }
 
 .search { min-width: 220px; }
 
@@ -289,6 +290,8 @@ input::placeholder { color: var(--faint); }
 .row-grip:active { cursor: grabbing; }
 .row-service { min-width: 0; }
 .row-name { font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-badge { display: inline-flex; vertical-align: -1px; margin-left: 6px; color: var(--faint); cursor: help; flex: none; }
+.note-badge:hover { color: var(--accent); }
 .row-desc { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row-addr { min-width: 0; }
 .row-addr-ip { font-family: var(--font-mono); font-size: 12.5px; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -419,7 +422,7 @@ input::placeholder { color: var(--faint); }
 }
 .modal-card h2 { margin: 0 0 4px; font-size: 18px; }
 .modal-card label { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; color: var(--muted); }
-.modal-card label input, .modal-card label select { color: var(--text); }
+.modal-card label input, .modal-card label select, .modal-card label textarea { color: var(--text); }
 .form-row { display: flex; gap: 12px; }
 .form-row .grow { flex: 1; }
 .form-row .port { width: 110px; }

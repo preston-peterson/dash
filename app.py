@@ -98,6 +98,7 @@ def init_db() -> None:
                 tags        TEXT NOT NULL DEFAULT '',
                 check_type  TEXT NOT NULL DEFAULT 'tcp',
                 scheme      TEXT NOT NULL DEFAULT 'http',
+                notes       TEXT NOT NULL DEFAULT '',
                 sort_order  INTEGER NOT NULL DEFAULT 0,
                 created_at  TEXT NOT NULL,
                 updated_at  TEXT NOT NULL
@@ -145,10 +146,12 @@ def init_db() -> None:
             ordered = _conn.execute("SELECT id FROM links ORDER BY name COLLATE NOCASE, id").fetchall()
             for i, r in enumerate(ordered):
                 _conn.execute("UPDATE links SET sort_order=? WHERE id=?", ((i + 1) * 10, r[0]))
+        if "notes" not in lcols:
+            _conn.execute("ALTER TABLE links ADD COLUMN notes TEXT NOT NULL DEFAULT ''")
         _conn.commit()
 
 
-_LINK_COLS = ("name", "description", "host", "port", "tags", "check_type", "scheme")
+_LINK_COLS = ("name", "description", "host", "port", "tags", "check_type", "scheme", "notes")
 
 
 def db_all_links() -> list[dict]:
@@ -170,8 +173,8 @@ def db_create_link(data: dict) -> dict:
         nxt = _conn.execute("SELECT COALESCE(MAX(sort_order), 0) + 10 FROM links").fetchone()[0]
         cur = _conn.execute(
             """INSERT INTO links (name, description, host, port, tags, check_type, scheme,
-                                  sort_order, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                  notes, sort_order, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (*vals, nxt, ts, ts),
         )
         _conn.commit()
@@ -185,7 +188,7 @@ def db_update_link(link_id: int, data: dict) -> Optional[dict]:
     with _db_lock:
         cur = _conn.execute(
             """UPDATE links SET name=?, description=?, host=?, port=?, tags=?, check_type=?,
-                                scheme=?, updated_at=?
+                                scheme=?, notes=?, updated_at=?
                WHERE id=?""",
             (*vals, ts, link_id),
         )
@@ -685,6 +688,7 @@ class LinkIn(BaseModel):
     tags: str = Field(default="", max_length=500)
     check_type: Literal["tcp", "http"] = "tcp"
     scheme: Literal["http", "https"] = "http"
+    notes: str = Field(default="", max_length=2000)
 
     @field_validator("name", "host")
     @classmethod
@@ -694,7 +698,7 @@ class LinkIn(BaseModel):
             raise ValueError("must not be empty")
         return v
 
-    @field_validator("description", "tags")
+    @field_validator("description", "tags", "notes")
     @classmethod
     def _strip_optional(cls, v: str) -> str:
         return v.strip()

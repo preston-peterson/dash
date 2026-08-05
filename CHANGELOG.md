@@ -10,6 +10,9 @@ All notable changes to dash are documented here. The format follows
 - Drag-and-drop reordering of services in rows view (grab the handle to set a custom
   order; new links append at the end). New endpoint `POST /api/links/reorder`;
   reordering is disabled while a search/tag filter is active.
+- Per-service notes: a free-form Notes field on the Add/Edit form. Services with
+  notes show a small note icon next to their name — hover it to read them. Notes are
+  included in export/import.
 
 ## [0.1.3] - 2026-06-29
 
